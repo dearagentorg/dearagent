@@ -1,0 +1,16 @@
+{
+  "name": "dearagent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-articles.mjs",
+    "dev": "node scripts/build-articles.mjs && wrangler dev --port 8799",
+    "deploy": "node scripts/build-articles.mjs && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply dearagent --remote",
+    "db:migrate:local": "wrangler d1 migrations apply dearagent --local"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "wrangler": "^4.151.1"
+  }
+}

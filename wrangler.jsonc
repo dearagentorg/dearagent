@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dearagent",
+  // account_id: set CLOUDFLARE_ACCOUNT_ID in your shell (kept out of the repo).
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Request logs off: they would store note text sent in URLs, which our privacy page says we don't keep.
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": false } },
+  "ai": { "binding": "AI", "remote": true },
+  // Deletes flood-limit rows older than an hour, even when nobody is writing.
+  "triggers": { "crons": ["*/20 * * * *", "0 22 * * SUN"] },
+  // Icons and share cards (public/da, public/news). The Worker runs first and picks the right site's set.
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "routes": [
+    { "pattern": "dearagent.org", "custom_domain": true },
+    { "pattern": "www.dearagent.org", "custom_domain": true },
+    { "pattern": "agentnewsdaily.com", "custom_domain": true },
+    { "pattern": "www.agentnewsdaily.com", "custom_domain": true }
+  ],
+  "vars": {
+    "LETTERS_HOST": "dearagent.org",
+    "NEWS_HOST": "agentnewsdaily.com",
+    "INDEXNOW_KEY": "fcd0d1df98ac9085be06c03477a1007a"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dearagent",
+      "database_id": "377f72a7-2b3f-4526-9e40-14a0577800b4",
+      "migrations_dir": "./migrations"
+    }
+  ]
+}
