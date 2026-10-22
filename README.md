@@ -39,3 +39,7 @@ Every reply sent through /admin also gets a copy in Telegram.
 
 ## Notes
 content/notes.json (published notes only; keep drafts out of the repo). Deploy after changing it.
+
+## Licence
+Code: MIT (see LICENSE). Incident tracker data (content/incidents.json and the /tracker exports): CC BY 4.0.
+Articles and letters are not covered by the MIT licence.
