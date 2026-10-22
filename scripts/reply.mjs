@@ -13,7 +13,7 @@ if (!thread || !file) {
   process.exit(1);
 }
 const password = process.env.ADMIN_PASSWORD
-  || (existsSync("ADMIN-PASSWORD.txt") && readFileSync("ADMIN-PASSWORD.txt", "utf8").match(/\S{12,}/)?.[0]);
+  || (existsSync("ADMIN-PASSWORD.txt") && readFileSync("ADMIN-PASSWORD.txt", "utf8").match(/password:\s*(\S+)/i)?.[1]);
 if (!password) {
   console.error("No admin password: set ADMIN_PASSWORD or keep ADMIN-PASSWORD.txt in this folder.");
   process.exit(1);
