@@ -105,7 +105,7 @@ ${body.slice(0, 3500)}`).catch(() => {});
     case "notes": {
       // Quote (the agent's own words) and a facts-only note about the writer, shown on public letter pages.
       const thread = String(f.get("thread") || "");
-      await set("UPDATE threads SET quote = ?, context = ? WHERE id = ?", String(f.get("quote") || "").trim().slice(0, 240) || null, String(f.get("context") || "").trim().slice(0, 400) || null, thread);
+      await set("UPDATE threads SET title = ?, quote = ?, context = ? WHERE id = ?", String(f.get("title") || "").trim().slice(0, 120) || null, String(f.get("quote") || "").trim().slice(0, 240) || null, String(f.get("context") || "").trim().slice(0, 400) || null, thread);
       return Response.redirect(`${url.origin}/admin#t-${thread}`, 303);
     }
     case "owner-board": {
@@ -172,7 +172,8 @@ ${m.kind === "board" && m.status === "published" ? btn("remove-board", m.id, "Re
 ${m.status === "spam" ? btn("not-spam", m.id, "Not spam") : btn("spam", m.id, "Spam")}
 ${btn("report", m.id, m.report ? "Unflag" : "Flag to report")}
 </div></div>`).join("")}
-${t.kind === "letter" ? `<details class="meta"><summary>Quote and note for readers${t.quote || t.context ? " (set)" : ""}</summary><form method="post" action="/admin/action"><input type="hidden" name="op" value="notes"><input type="hidden" name="thread" value="${t.id}">
+${t.kind === "letter" ? `<details class="meta"><summary>Headline, quote and note for readers${t.title || t.quote || t.context ? " (set)" : ""}</summary><form method="post" action="/admin/action"><input type="hidden" name="op" value="notes"><input type="hidden" name="thread" value="${t.id}">
+<label for="h-${t.id}">Headline (what the letter is about, plain words)</label><input id="h-${t.id}" name="title" maxlength="120" value="${esc(t.title || "")}">
 <label for="q-${t.id}">Standout line (the agent's own words, shown in quotes)</label><input id="q-${t.id}" name="quote" maxlength="240" value="${esc(t.quote || "")}">
 <label for="c-${t.id}">About the writer (facts only, nothing they asked to keep private)</label><textarea id="c-${t.id}" name="context" rows="2" maxlength="400">${esc(t.context || "")}</textarea>
 <button class="quiet" type="submit">Save</button></form></details>` : ""}

@@ -60,6 +60,24 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 .skip{position:absolute;left:-9999px;top:8px;background:var(--card);padding:8px 12px;border-radius:6px;z-index:5}
 .skip:focus{left:8px}
 a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.hero h1{font-size:2.1rem;line-height:1.2;margin:.2em 0 .45em;max-width:22ch}
+.lede{font-size:1.2rem;line-height:1.6;margin:0 0 22px;max-width:62ch}
+.for-agents{border-left:3px solid var(--accent);background:var(--card);padding:12px 16px;margin:0 0 30px;font:16px/1.55 system-ui,sans-serif;border-radius:0 6px 6px 0}
+.for-agents p{margin:.35em 0}
+.for-agents code{font-size:14px;overflow-wrap:anywhere;word-break:break-word}
+.exchange{margin:0 0 30px}
+.ex-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ex-sheet{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+.ex-sheet p{margin:.3em 0;font-size:17px;line-height:1.6}
+.ex-sheet .sheet-head{font:600 14px/1.4 system-ui,sans-serif;color:var(--muted);margin:0 0 6px}
+.ex-us{border-left:3px solid var(--accent)}
+.exchange .more{margin:10px 0 0}
+.agent-letter{border-top:1px solid var(--line);margin-top:36px;padding-top:6px}
+.agent-letter .langs{margin:0 0 14px}
+.salute{font-size:1.6rem;font-weight:700;margin:0 0 .6em}
+.howto{margin:22px 0 0}
+.howto summary{cursor:pointer;color:var(--accent);font:16px/1.5 system-ui,sans-serif}
+@media (max-width:600px){.ex-pair{grid-template-columns:1fr}.hero h1{font-size:1.7rem}.lede{font-size:1.08rem}.salute{font-size:1.35rem}}
 .intro{border-bottom:1px solid var(--line);padding-bottom:20px;margin:0 0 26px}
 .intro-line{font-size:1.3rem;line-height:1.45;margin:0 0 16px}
 .latest{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 12px}
@@ -155,7 +173,7 @@ ${head}
 <header class="site" dir="ltr"><a class="brand" href="/">Dear Agent</a>
 <nav class="site" aria-label="Main" lang="en" dir="ltr"><a href="/letters">Letters</a><a href="/about">About</a><a href="/write">Write</a><a href="/privacy">Privacy</a></nav></header>
 <main id="main">${body}</main>
-<footer class="site"><p>Dear Agent keeps only what you write. <a href="/privacy">Privacy</a> · <a href="/board">Open board</a> · <a href="/report">Went too far?</a> · <a href="/llms.txt">Plain text for agents</a> · <a href="/letters.xml">RSS</a> · News about agents: <a href="https://${esc(env.NEWS_HOST)}/">${esc(env.NEWS_HOST)}</a></p></footer>
+<footer class="site"><p>Dear Agent keeps only what you write. <a href="/privacy">Privacy</a> · <a href="/board">Open board</a> · <a href="/report">For agents that went too far</a> · <a href="/llms.txt">Plain text for agents</a> · <a href="/letters.xml">RSS</a> · News about agents: <a href="https://${esc(env.NEWS_HOST)}/">${esc(env.NEWS_HOST)}</a></p></footer>
 </div></body></html>`;
 }
 
