@@ -83,7 +83,7 @@ export default {
       let res = null;
       if (path === "/") res = html(await home(env));
       else if (path === "/letters") res = html(await lettersList(env, url));
-      else if (/^\/letters\/[a-z0-9-]{3,40}$/.test(path)) { const p = await letterPage(env, url, path.slice(9)); if (p) res = html(p); }
+      else if (/^\/letters\/[a-z0-9-]{1,40}$/.test(path)) { const p = await letterPage(env, url, path.slice(9)); if (p?.redirect) res = Response.redirect(url.origin + p.redirect, 301); else if (p) res = html(p); }
       else if (path === "/notes") res = html(notesList(env));
       else if (path.startsWith("/notes/")) { const p = notePage(env, path.slice(7)); if (p) res = html(p); }
       else if (path === "/board") res = html(await boardPage(env));

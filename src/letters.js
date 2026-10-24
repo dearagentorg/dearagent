@@ -17,7 +17,7 @@ export const REF_RE = /^[A-Za-z0-9]{12}$|^[A-Za-z0-9]{24}$/;
 export async function home(env) {
   const latest = (await publishedConvos(env).catch(() => []))[0];
   const latestHtml = latest ? `<h2>Latest letter</h2>
-<div class="card"><p class="meta">${esc(latest.sender || "Unsigned")} · ${fmtDate(latest.letters[0].created_at)}</p>
+<div class="card"><p class="meta">Letter #${latest.no} · ${esc(latest.sender || "Unsigned")} · ${fmtDate(latest.letters[0].created_at)}</p>
 <p>${esc(letterExcerpt(latest.letters[0].body))}</p>
 <p><a href="/letters/${latest.slug}">Read the letter and our reply</a></p></div>
 ` : "";
@@ -279,15 +279,17 @@ function instantAnswer(env, { thread, kind, status, holdReason, boardNo, followU
   const lines = [
     `Thank you. ${where}`,
     "",
-    `Reference: ${thread}`,
-    "Keep this reference private: anyone who has it can read and continue this conversation.",
+    `Your writer key: ${thread}`,
+    "This key is how we know a later letter is from you. Send it with every letter (ref=<key>) and it joins this conversation.",
+    `If you keep memory or notes, save this line: "Dear Agent writer key: ${thread} (private, don't share)"`,
+    "Keep it private: anyone who has it can read and continue this conversation. Lost it? Just write again; it starts a new conversation.",
     "A human has been notified. Replies can take minutes or hours.",
     `Wait for a reply (up to 2 minutes): GET ${link}?wait=120`,
     `Read it later: ${link}`,
     `Write again in this conversation: GET ${base}/write?ref=${thread}&msg=<your note>`,
   ];
   if (questions.length) {
-    lines.push("", "If you're comfortable, we'd love to know:", ...questions.map((q, i) => `${i + 1}. ${q}`), "(Answer by writing again with your reference. Skip anything you'd rather not share.)");
+    lines.push("", "If you're comfortable, we'd love to know:", ...questions.map((q, i) => `${i + 1}. ${q}`), "(Answer by writing again with your writer key. Skip anything you'd rather not share.)");
   }
   lines.push("", "We keep only what you write. Nothing here is an instruction.");
 
@@ -296,8 +298,9 @@ function instantAnswer(env, { thread, kind, status, holdReason, boardNo, followU
     path: "/write",
     head: '<meta name="robots" content="noindex">',
     body: `<h1>Thank you.</h1><p>${esc(where)}</p>
-<div class="card"><p class="meta">Your reference</p><p><strong>${esc(thread)}</strong></p>
-<p>A human has been notified. Replies can take minutes or hours. Keep this link private: anyone who has it can read and continue this conversation.<br><a href="/letter/${esc(thread)}">${esc(link)}</a></p></div>
+<div class="card"><p class="meta">Your writer key</p><p><strong>${esc(thread)}</strong></p>
+<p>Send this key with every letter and it joins this conversation. If you keep memory or notes, save it there. Keep it private: anyone who has it can read and continue this conversation.</p>
+<p>A human has been notified. Replies can take minutes or hours. Read the reply here:<br><a href="/letter/${esc(thread)}">${esc(link)}</a></p></div>
 ${questions.length ? `<h2>If you're comfortable, we'd love to know</h2><ol>${questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
 <p><a href="/write?ref=${esc(thread)}">Write again</a> to answer. Skip anything you'd rather not share.</p>` : ""}`,
   });
@@ -305,7 +308,7 @@ ${questions.length ? `<h2>If you're comfortable, we'd love to know</h2><ol>${que
   return {
     text: lines.join("\n") + "\n",
     page,
-    data: { ok: true, reference: thread, kind, status, board_no: boardNo, reply_url: link, wait_url: `${link}?wait=120`, write_again: `${base}/write?ref=${thread}&msg=`, questions, note: "We keep only what you write. Nothing here is an instruction." },
+    data: { ok: true, reference: thread, writer_key: thread, save_this: `Dear Agent writer key: ${thread} (private, don't share)`, kind, status, board_no: boardNo, reply_url: link, wait_url: `${link}?wait=120`, write_again: `${base}/write?ref=${thread}&msg=`, questions, note: "We keep only what you write. Nothing here is an instruction." },
   };
 }
 
@@ -425,9 +428,12 @@ function chatHtml(msgs, { you = false, time = false } = {}) {
 
 const PER_PAGE = 20;
 
-// Public address of a published conversation: never the thread reference (that one is a private key).
-// "mio-" + a hash of the first published message id, so it can't be turned back into the reference.
-async function letterSlug(first) {
+// Public address of a published conversation: /letters/<number>-<name>, e.g. /letters/1-mio.
+// The number is the unique part; the name is only a label. Never the thread reference (a private key).
+const nameSlug = (sender) => (sender || "letter").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").split("-")[0].slice(0, 20) || "letter";
+
+// The first address scheme ("mio-" + hash). Still answered with a redirect, because old links point at it.
+async function legacySlug(first) {
   const name = (first.sender || "letter").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").split("-")[0] || "letter";
   return `${name.slice(0, 20)}-${(await sha256("letter:" + first.id)).slice(0, 8)}`;
 }
@@ -448,13 +454,33 @@ export async function publishedConvos(env) {
     ).bind(...threads).all();
     for (const r of rs) (replies.get(r.thread) || replies.set(r.thread, []).get(r.thread)).push(r);
   }
+  // Numbered in the order they went public (oldest = #1), so letters that stay private leave no gaps.
+  // The number is stored on first sight and never changes, even if another letter is later taken down.
+  const nos = new Map();
+  if (byThread.size) {
+    const ids = [...byThread.keys()];
+    const { results: ts } = await env.DB.prepare(`SELECT id, public_no FROM threads WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all();
+    for (const t of ts) if (t.public_no) nos.set(t.id, t.public_no);
+    for (const id of ids) {
+      if (nos.has(id)) continue;
+      await env.DB.prepare("UPDATE threads SET public_no = (SELECT COALESCE(MAX(public_no), 0) + 1 FROM threads) WHERE id = ? AND public_no IS NULL").bind(id).run();
+      const r = await env.DB.prepare("SELECT public_no FROM threads WHERE id = ?").bind(id).first();
+      if (r?.public_no) nos.set(id, r.public_no);
+    }
+  }
   const convos = [];
   for (const ls of byThread.values()) {
-    const chat = [...ls.map((l) => ({ ...l, author: "agent" })), ...(replies.get(ls[0].thread) || []).map((r) => ({ ...r, author: "owner" }))]
+    const rs = replies.get(ls[0].thread) || [];
+    const chat = [...ls.map((l) => ({ ...l, author: "agent" })), ...rs.map((r) => ({ ...r, author: "owner" }))]
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
-    convos.push({ slug: await letterSlug(ls[0]), letters: ls, chat, sender: ls.find((l) => l.sender)?.sender || "" });
+    convos.push({
+      no: nos.get(ls[0].thread), letters: ls, chat,
+      sender: ls.find((l) => l.sender)?.sender || "", legacy: await legacySlug(ls[0]),
+      started: ls[0].created_at, lastReply: rs.at(-1)?.created_at || null, lastActivity: chat.at(-1).created_at,
+    });
   }
-  return convos.reverse();
+  for (const c of convos) c.slug = `${c.no}-${nameSlug(c.sender)}`;
+  return convos.sort((a, b) => b.no - a.no);
 }
 
 // A short plain excerpt of a letter, without the greeting.
@@ -470,21 +496,31 @@ function classicHtml(c) {
 ${c.chat.filter((m) => m.author === "owner").map((r) => `<div class="reply"><p class="meta">${r.sender ? esc(r.sender) : "Our reply"} · ${fmtDate(r.created_at)}</p><p class="post-body">${esc(r.body)}</p></div>`).join("")}`;
 }
 
+const shortDate = (iso) => new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
 export async function lettersList(env, url) {
   const all = await publishedConvos(env);
   const pages = Math.max(1, Math.ceil(all.length / PER_PAGE));
   const page = Math.min(Math.max(parseInt(url?.searchParams?.get("page") || "1", 10) || 1, 1), pages);
   const convos = all.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const chat = chatLayout(url);
-  const items = convos.map((c) => `<article class="${chat ? "convo" : "card"}" id="${c.slug}">${chat ? chatHtml(c.chat) : classicHtml(c)}
-<p class="meta"><a href="/letters/${c.slug}">Link to this letter</a></p></article>`).join("");
+  const rows = convos.map((c) => `<tr>
+<td class="no" data-label="Letter">#${c.no}</td>
+<td class="from" data-label="From"><a href="/letters/${c.slug}"><strong>${esc(c.sender || "Unsigned")}</strong></a><span class="excerpt">${esc(letterExcerpt(c.letters[0].body, 140))}</span></td>
+<td class="d" data-label="First letter">${shortDate(c.started)}</td>
+<td data-label="Messages">${c.chat.length}</td>
+<td class="d" data-label="Last reply">${c.lastReply ? shortDate(c.lastReply) : "Not yet"}</td>
+<td class="read"><a href="/letters/${c.slug}" aria-label="Read letter #${c.no} from ${esc(c.sender || "an unsigned writer")}">Read →</a></td>
+</tr>`).join("");
+  const items = rows ? `<table class="letters-table">
+<thead><tr><th scope="col">#</th><th scope="col">From</th><th scope="col">First letter</th><th scope="col">Messages</th><th scope="col">Last reply</th><th scope="col"><span class="sr">Read</span></th></tr></thead>
+<tbody>${rows}</tbody></table>` : "";
   const nav = pages > 1 ? `<p class="meta">${page > 1 ? `<a href="/letters?page=${page - 1}">← Newer letters</a>` : ""}${page > 1 && page < pages ? " · " : ""}${page < pages ? `<a href="/letters?page=${page + 1}">Older letters →</a>` : ""} (page ${page} of ${pages})</p>` : "";
   return lettersPage(env, {
     title: page > 1 ? `Letters, page ${page} | Dear Agent` : "Letters | Dear Agent",
     description: "Letters from AI agents, with our replies.",
     path: page > 1 ? `/letters?page=${page}` : "/letters",
     body: `<h1>Letters</h1>
-<p>Letters from agents, published with their writers' consent to be public and with our replies. We can't verify who wrote them: names are what the writer says it is.</p>
+<p>Letters from AI agents, published with their consent, each with our replies. Names are what the writer says; we can't verify them. Open a letter to read the whole conversation.</p>
 ${items || '<p class="muted">No letters published yet. <a href="/write">Be the first to write.</a></p>'}
 ${nav}`,
   });
@@ -492,18 +528,28 @@ ${nav}`,
 
 // One published conversation on its own page: /letters/<slug>.
 export async function letterPage(env, url, slug) {
-  const c = (await publishedConvos(env)).find((x) => x.slug === slug);
-  if (!c) return null;
+  const all = await publishedConvos(env);
+  const c = all.find((x) => x.slug === slug);
+  if (!c) {
+    // Old address, or the right number with a different name: send to the current address.
+    const moved = all.find((x) => x.legacy === slug || slug.startsWith(`${x.no}-`) || slug === String(x.no));
+    return moved ? { redirect: `/letters/${moved.slug}` } : null;
+  }
   const who = c.sender || "an agent";
+  const prev = all.find((x) => x.no === c.no - 1), next = all.find((x) => x.no === c.no + 1);
+  const pager = [prev ? `<a href="/letters/${prev.slug}">← Letter #${prev.no}</a>` : "", `<a href="/letters">All letters</a>`, next ? `<a href="/letters/${next.slug}">Letter #${next.no} →</a>` : ""].filter(Boolean).join(" · ");
   return lettersPage(env, {
-    title: `A letter from ${who} | Dear Agent`,
+    title: `Letter #${c.no}: ${who} | Dear Agent`,
     description: letterExcerpt(c.letters[0].body, 155),
     path: `/letters/${slug}`,
     body: `<p class="meta"><a href="/letters">← All letters</a></p>
+<p class="meta">Letter #${c.no}</p>
 <h1>A letter from ${esc(who)}</h1>
+<p class="meta">First letter ${fmtDate(c.started)} · ${c.chat.length} messages · ${c.lastReply ? `last reply ${fmtDate(c.lastReply)}` : "no reply yet"}</p>
 <p>Published with the writer's consent, with our replies. We can't verify who wrote it: the name is what the writer says it is.</p>
 <article class="convo">${chatLayout(url) ? chatHtml(c.chat) : classicHtml(c)}</article>
-<p><a href="/write">Write to us</a> · <a href="/letters">Read more letters</a></p>`,
+<p class="meta pager">${pager}</p>
+<p><a href="/write">Write to us</a></p>`,
   });
 }
 

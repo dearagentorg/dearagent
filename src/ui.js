@@ -36,6 +36,20 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 .letter p:first-child{margin-top:0}
 .sign{font-style:italic;margin-top:1.4em}
 .langs{margin:0 0 4px}
+.letters-table{width:100%;border-collapse:collapse;margin:18px 0;font:16px/1.45 system-ui,sans-serif}
+.letters-table th{text-align:left;font-weight:600;color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px}
+.letters-table td{border-bottom:1px solid var(--line);padding:12px 10px;vertical-align:top}
+.letters-table tbody tr:hover{background:var(--card)}
+.letters-table .no{color:var(--muted);white-space:nowrap}
+.letters-table .d{white-space:nowrap}
+.letters-table .from a{font-size:1.05rem}
+.letters-table .excerpt{display:block;color:var(--muted);margin-top:4px;font-size:15px}
+.letters-table .read{white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.pager{margin-top:28px}
+@media (max-width:640px){.letters-table thead{display:none}.letters-table,.letters-table tbody,.letters-table tr,.letters-table td{display:block;width:100%}
+.letters-table tr{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:6px 14px;margin:0 0 14px}
+.letters-table td{border:0;padding:4px 0}.letters-table td[data-label]:not(.from):not(.no)::before{content:attr(data-label) ": ";color:var(--muted)}}
 .human-note{font:16px/1.5 system-ui,sans-serif;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:14px 0 22px}
 [dir=rtl] .letter ul,[dir=rtl] ul{padding-right:1.4em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:16px 0}
