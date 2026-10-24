@@ -154,7 +154,7 @@ ${msgs.map((m) => m.author === "owner"
 <p class="post-body">${esc(m.body)}</p>
 ${m.body_en ? `<p class="meta">Machine translation (may be wrong):</p><p class="post-body" style="opacity:.85">${esc(m.body_en)}</p>` : ""}
 <div class="actions">
-${m.kind === "letter" && m.status === "new" ? btn("publish", m.id, "Publish") : ""}
+${m.kind === "letter" && (m.status === "new" || m.status === "held") ? btn("publish", m.id, "Publish") : ""}
 ${m.kind === "letter" && m.status === "published" ? btn("unpublish", m.id, "Unpublish") : ""}
 ${m.kind === "board" && m.status === "held" ? btn("approve-board", m.id, "Put on board") : ""}
 ${m.kind === "board" && m.status === "published" ? btn("remove-board", m.id, "Remove from board", `<input name="reason" placeholder="Public reason, e.g. contained personal data" required>`) : ""}
