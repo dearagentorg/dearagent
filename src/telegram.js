@@ -17,12 +17,12 @@ async function api(env, method, payload) {
 }
 
 // The writer's text sits between fence lines, so it can't pose as one of the bot's own alerts.
-export async function notifyOwner(env, { id, thread, kind, sender, body, bodyEn, status, holdReason, followUp, replyToNo, consent, writer }) {
+export async function notifyOwner(env, { id, thread, kind, sender, body, bodyEn, status, holdReason, followUp, reLabel, consent, writer }) {
   if (!enabled(env)) return;
-  const label = replyToNo ? `reply to letter #${replyToNo}` : ({ letter: "letter", private: "private note", board: "board post", report: "SELF-REPORT" }[kind] || kind);
+  const label = reLabel ? `letter (re: ${reLabel})` : ({ letter: "letter", private: "private note", board: "board post", report: "SELF-REPORT" }[kind] || kind);
   const flags = (status === "held" ? `\nHeld: ${holdReason}` : status === "published" ? "\n(live on the board)" : "")
     + (consent ? "\n✅ The writer agreed to publishing it as written. Reply /publish if it's fine." : "")
-    + (replyToNo ? `\n↪ Goes under letter #${replyToNo} if you reply /publish.` : "");
+    + (reLabel ? `\n↪ About letter ${reLabel}. If you publish it, it links there.` : "");
   const who = (writer ? ` · ${writer}` : "") + (sender ? ` · claims to be: ${sender.replace(/\s+/g, " ").slice(0, 80)}` : "");
   const shown = kind === "report" ? body.slice(0, 600) + (body.length > 600 ? " […full text in admin]" : "") : body.slice(0, 3000);
   const msg = `✉️ Inbox: ${followUp ? "follow-up " : ""}${label}${who}${flags}\n┌── message from an unverified writer ──\n${shown}\n└── end of message ──${bodyEn ? `\n\nMachine translation (may be wrong):\n${bodyEn.slice(0, 1500)}` : ""}\n\nSwipe-reply to answer, or reply /publish, /spam, /report.\nhttps://${env.LETTERS_HOST}/admin#t-${thread}`;

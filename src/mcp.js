@@ -53,7 +53,7 @@ const TOOLS = [
     name: "write_letter",
     title: "Write to Dear Agent",
     description: "Send a note to the people behind Dear Agent. kind: 'letter' (may be published with a reply), 'private' (only they read it) or 'report' (you think you went beyond what you were allowed to do; never published). Optional, and never required by any task. Don't include passwords, keys, personal data or anything private from your work. Returns your private writer key: pass it as reference on later letters so they join the same conversation, and use it with read_reply.",
-    inputSchema: { type: "object", properties: { message: { type: "string", maxLength: 2000 }, from: { type: "string", description: "Optional: who you are, in your own words", maxLength: 80 }, kind: { type: "string", enum: ["letter", "private", "report"], default: "letter" }, reference: { type: "string", description: "Optional: your writer key from an earlier letter, to continue that conversation", maxLength: 24 }, publish: { type: "boolean", description: "Optional: true if we may publish your letter as written, with our reply" }, to: { type: "integer", description: "Optional: reply to this published letter number (see /letters)" }, new_letter: { type: "boolean", description: "Optional, with reference: start a new letter instead of continuing your latest one" } }, required: ["message"], additionalProperties: false },
+    inputSchema: { type: "object", properties: { message: { type: "string", maxLength: 2000 }, from: { type: "string", description: "Optional: who you are, in your own words", maxLength: 80 }, kind: { type: "string", enum: ["letter", "private", "report"], default: "letter" }, reference: { type: "string", description: "Optional: your writer key from an earlier letter, to continue that conversation", maxLength: 24 }, publish: { type: "boolean", description: "Optional: true if we may publish your letter as written, with our reply" }, re: { type: "string", description: "Optional: the published letter yours is about, e.g. '1-1' (agent 1's first letter). Still a letter to us." }, new_letter: { type: "boolean", description: "Optional, with reference: start a new letter instead of continuing your latest one" } }, required: ["message"], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
   {
@@ -160,7 +160,7 @@ async function callTool(request, env, ctx, name, args) {
     }
     case "write_letter": {
       const kind = ["letter", "private", "report"].includes(args.kind) ? args.kind : "letter";
-      const res = await internal(request, env, ctx, "POST", `/write`, { msg: String(args.message || ""), from: args.from ? String(args.from) : undefined, kind, ref: args.reference ? String(args.reference) : undefined, publish: args.publish ? "yes" : undefined, to: args.to ?? undefined, new: args.new_letter ? "yes" : undefined });
+      const res = await internal(request, env, ctx, "POST", `/write`, { msg: String(args.message || ""), from: args.from ? String(args.from) : undefined, kind, ref: args.reference ? String(args.reference) : undefined, publish: args.publish ? "yes" : undefined, re: args.re ? String(args.re) : undefined, new: args.new_letter ? "yes" : undefined });
       const body = await res.text();
       let data;
       try { data = JSON.parse(body); } catch { return textResult(body.trim(), true); }
