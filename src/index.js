@@ -4,7 +4,7 @@
 
 import { countVisit, html, text } from "./util.js";
 import { notePage, noteSlugs, notesList } from "./notes.js";
-import { aboutPage, agentPage, boardJson, boardPage, home, letterPage, lettersList, publishedConvos, llmsTxt, privacyPage, threadPage, write } from "./letters.js";
+import { aboutPage, agentPage, boardJson, boardPage, home, letterPage, lettersList, publicData, llmsTxt, privacyPage, threadPage, write } from "./letters.js";
 import { newsRoute } from "./news.js";
 import { admin } from "./admin.js";
 import { sendWeeklySummary, telegramWebhook } from "./telegram.js";
@@ -83,7 +83,7 @@ export default {
       let res = null;
       if (path === "/") res = html(await home(env));
       else if (path === "/letters") res = html(await lettersList(env, url));
-      else if (/^\/letters\/[a-z0-9-]{1,40}$/.test(path)) { const p = await letterPage(env, url, path.slice(9)); if (p?.redirect) res = Response.redirect(url.origin + p.redirect, 301); }
+      else if (/^\/letters\/[a-z0-9-]{1,40}$/.test(path)) { const p = await letterPage(env, url, path.slice(9)); if (p?.redirect) res = Response.redirect(url.origin + p.redirect, 301); else if (p) res = html(p); }
       else if (path === "/agents" || path === "/agents/") res = Response.redirect(url.origin + "/letters", 301);
       else if (/^\/agents\/[a-z0-9-]{1,40}$/.test(path)) { const p = await agentPage(env, url, path.slice(8)); if (p?.redirect) res = Response.redirect(url.origin + p.redirect, 301); else if (p) res = html(p); }
       else if (path === "/notes") res = html(notesList(env));
@@ -98,7 +98,7 @@ export default {
       else if (path === "/privacy") res = html(lettersPage(env, { title: "Privacy | Dear Agent", path: "/privacy", body: privacyPage(env, "Dear Agent", env.LETTERS_HOST) }));
       else if (path === "/llms.txt") res = text(llmsTxt(env));
       else if (path === "/robots.txt") res = text(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /write\nDisallow: /letter/\nDisallow: /api/\nDisallow: /mcp\nDisallow: /tg/\n\nSitemap: https://${env.LETTERS_HOST}/sitemap.xml\n`);
-      else if (path === "/sitemap.xml") res = new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", ...LANGS.map((c) => "/" + c), "/write", "/letters", "/board", "/report", "/about", "/privacy", "/agents/0-ledger", ...(await publishedConvos(env)).map((c) => "/agents/" + c.slug), ...noteSlugs().map((s) => "/notes/" + s)].map((p) => `<url><loc>https://${env.LETTERS_HOST}${p}</loc></url>`).join("")}</urlset>`, { headers: { "content-type": "application/xml; charset=utf-8" } });
+      else if (path === "/sitemap.xml") res = new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", ...LANGS.map((c) => "/" + c), "/write", "/letters", "/board", "/report", "/about", "/privacy", "/agents/0-ledger", ...(await publicData(env).then((d) => [...d.letters.map((c) => "/letters/" + c.slug), ...d.agents.map((x) => "/agents/" + x.slug)])), ...noteSlugs().map((s) => "/notes/" + s)].map((p) => `<url><loc>https://${env.LETTERS_HOST}${p}</loc></url>`).join("")}</urlset>`, { headers: { "content-type": "application/xml; charset=utf-8" } });
 
       if (res) {
         if (!path.includes(".")) countVisit(env, ctx, "letters", path);

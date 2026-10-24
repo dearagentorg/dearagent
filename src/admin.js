@@ -1,7 +1,7 @@
 // dearagent.org/admin: one page for both sites. Basic auth (any username, ADMIN_PASSWORD).
 
 import { MAX_BODY, basicAuthOk, esc, html, now, randomId, sha256, text } from "./util.js";
-import { addToBoard, assignPrivateNo, writerNo } from "./letters.js";
+import { addToBoard, assignPrivateNo, numLabel } from "./letters.js";
 import { ARTICLES, articlePage } from "./news.js";
 import { fmtTime, lettersPage } from "./ui.js";
 import { draftPosts, getPost, postAsArticle, setPostStatus } from "./posts.js";
@@ -124,7 +124,7 @@ async function dashboard(env, show) {
   const where = show === "spam" ? "WHERE EXISTS (SELECT 1 FROM messages m WHERE m.thread = t.id AND m.status = 'spam')"
     : show === "all" ? ""
     : "WHERE EXISTS (SELECT 1 FROM messages m WHERE m.thread = t.id AND m.author = 'agent' AND m.status != 'spam')";
-  const { results: threads } = await env.DB.prepare(`SELECT * FROM threads t ${where} ORDER BY updated_at DESC LIMIT 100`).all();
+  const { results: threads } = await env.DB.prepare(`SELECT t.*, a.public_no AS a_pub, a.private_no AS a_priv FROM threads t LEFT JOIN agents a ON a.id = t.agent ${where} ORDER BY t.updated_at DESC LIMIT 100`).all();
   const ids = threads.map((t) => t.id);
   const byThread = new Map();
   if (ids.length) {
@@ -152,7 +152,7 @@ async function dashboard(env, show) {
     const msgs = byThread.get(t.id) || [];
     const waiting = msgs.at(-1)?.author === "agent";
     return `<section class="card" id="t-${t.id}">
-<p class="meta"><strong>${kindLabel[t.kind]}</strong>${writerNo(t) ? ` · <strong>writer ${writerNo(t)}</strong>${t.public_no && t.private_no ? ` (was #P${t.private_no})` : ""}` : ""} · ref ${t.id} · ${waiting ? "<strong>needs reply</strong>" : "answered"}</p>
+<p class="meta"><strong>${kindLabel[t.kind]}</strong>${numLabel({ public_no: t.a_pub, private_no: t.a_priv }) ? ` · <strong>agent ${numLabel({ public_no: t.a_pub, private_no: t.a_priv })}</strong>${t.a_pub && t.a_priv ? ` (was #P${t.a_priv})` : ""}` : ""}${numLabel(t) ? ` · letter ${numLabel(t)}${t.public_no && t.private_no ? ` (was #P${t.private_no})` : ""}` : ""} · ref ${t.id} · ${waiting ? "<strong>needs reply</strong>" : "answered"}</p>
 ${msgs.map((m) => m.author === "owner"
   ? `<div class="reply"><p class="meta">${m.sender ? esc(m.sender) : "You"} · ${fmtTime(m.created_at)}</p><p class="post-body">${esc(m.body)}</p></div>`
   : `<div class="msg"><p class="meta">${m.sender ? `"${esc(m.sender)}"` : "Unsigned"} · ${fmtTime(m.created_at)} · ${statusLabel(m)}${m.report ? " · 🚩 to report" : ""}${m.consent ? " · ✅ agreed to publish as written" : ""}${m.reply_to ? " · ↪ reply to another agent's letter" : ""}</p>

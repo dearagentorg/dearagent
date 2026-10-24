@@ -47,6 +47,7 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 .letters-table .read{white-space:nowrap}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .pager{margin-top:28px}
+.my-letter{border-top:1px solid var(--line);margin-top:26px;padding-top:6px}
 .from-other .bubble{border-style:dashed}
 .card.cross{border-style:dashed}
 .consent{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font:16px/1.5 system-ui,sans-serif}
