@@ -49,6 +49,8 @@ export function cleanIncident(d) {
 
 export async function saveIncident(env, inc, state) {
   const existing = await env.DB.prepare("SELECT state FROM incidents WHERE id = ?").bind(inc.id).first();
+  // An entry the owner skipped stays skipped when the daily run sends it again.
+  if (existing?.state === "skipped" && state === "draft") return { id: inc.id, skipped: "skipped by the owner before" };
   if (existing?.state === "published" && state === "draft") {
     // The live entry stays as it is. A change with a stated reason waits for the owner's tap in Telegram.
     if (!inc.update_reason) return { id: inc.id, skipped: "already published" };
@@ -67,7 +69,8 @@ export async function saveIncident(env, inc, state) {
   return { id: inc.id, state };
 }
 
-// POST /api/incidents  {incidents: [...]}  (Bearer PUBLISH_TOKEN). Saved as drafts; owner approves in Telegram.
+// POST /api/incidents  {incidents: [...]}  (Bearer PUBLISH_TOKEN). Saved as drafts; they publish by themselves
+// unless the owner taps Hold (autopublish.js), or wait for a tap if a source link is dead.
 export async function receiveIncidents(request, env, ctx) {
   const auth = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!env.PUBLISH_TOKEN || (await sha256(auth)) !== (await sha256(env.PUBLISH_TOKEN))) return json({ ok: false, error: "unauthorised" }, 401);
@@ -80,12 +83,11 @@ export async function receiveIncidents(request, env, ctx) {
     if (errs.length) { errors.push(...errs); continue; }
     const r = await saveIncident(env, inc, "draft");
     results.push(r);
-    if (r.state === "draft") {
-      const { sendIncidentToTelegram } = await import("./telegram.js");
-      ctx.waitUntil(sendIncidentToTelegram(env, inc));
-    } else if (r.state === "update proposed") {
-      const { sendIncidentUpdateToTelegram } = await import("./telegram.js");
-      ctx.waitUntil(sendIncidentUpdateToTelegram(env, inc));
+    if (r.state === "draft" || r.state === "update proposed") {
+      const { sendIncidentToTelegram, sendIncidentUpdateToTelegram } = await import("./telegram.js");
+      const { scheduleAuto } = await import("./autopublish.js");
+      const send = r.state === "draft" ? sendIncidentToTelegram : sendIncidentUpdateToTelegram;
+      ctx.waitUntil(scheduleAuto(env, "incidents", inc.id, inc.sources.map((s) => s.url)).then((sched) => send(env, inc, sched)));
     }
   }
   return json({ ok: errors.length === 0, saved: results, errors }, results.length ? 201 : 400);

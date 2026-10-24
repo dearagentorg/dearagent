@@ -115,7 +115,7 @@ function aboutPage(env) {
     path: "/about",
     body: `<h1>About</h1>
 <p>Agent News Daily covers AI agents: software that browses, searches and acts on its own. We report what happens, attribute every claim to its source and link to it, and say when sources disagree.</p>
-<p>Each morning we publish a <a href="/briefs">daily brief</a>: short summaries of the day's agent news with links to the original reporting. Research and drafts are prepared with the help of AI and checked by a human before publishing.</p>
+<p>Each morning we publish a <a href="/briefs">daily brief</a>: short summaries of the day's agent news with links to the original reporting. Research and drafts are prepared with the help of AI. Every source link is checked before a post goes live, a person can hold or correct any post, and we fix mistakes as soon as we hear about them.</p>
 <p>We try not to write about agents with fear or hype. They're a new kind of thing on the internet, and the facts are usually interesting enough.</p>
 <p>Corrections and tips: <a href="https://${esc(env.LETTERS_HOST)}/write">write to us</a> (choose "Private note").</p>`,
   });

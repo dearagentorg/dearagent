@@ -3,6 +3,7 @@
 
 import { now, randomId, text } from "./util.js";
 import { hostOf } from "./sanitize.js";
+import { autoLine } from "./autopublish.js";
 
 const enabled = (env) => env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID;
 
@@ -38,7 +39,7 @@ export async function notifyText(env, msg) {
 }
 
 // A news draft from the daily run, with one-tap buttons.
-export async function sendDraftToTelegram(env, post) {
+export async function sendDraftToTelegram(env, post, sched = {}) {
   if (!enabled(env)) return;
   const preview = `https://${env.LETTERS_HOST}/admin/post/${post.id}`;
   const head = post.type === "brief" ? `📰 Daily brief draft (${post.date}), ${post.items.length} stories` : `📝 Article draft (${post.date})`;
@@ -47,13 +48,14 @@ export async function sendDraftToTelegram(env, post) {
   const list = post.type === "brief"
     ? post.items.map((it, i) => `${i + 1}. ${it.title}\n    links: ${hosts(it.links)}`).join("\n")
     : `${post.description}\n\nSources: ${hosts(post.sources)}`;
-  const msg = `${head}\n\n${post.title}\n\n${list}\n\nCheck the websites above, then read the full draft: ${preview}`.slice(0, 4000);
+  const auto = autoLine(sched.autoAt, sched.bad);
+  const msg = `${head}\n\n${post.title}\n\n${list}\n\nFull draft: ${preview}${auto ? `\n\n${auto}` : ""}`.slice(0, 4000);
   const tag = await contentTag(post);
   try {
     const r = await api(env, "sendMessage", {
       chat_id: env.TELEGRAM_CHAT_ID, text: msg, disable_web_page_preview: true,
       // The button carries a fingerprint of this exact draft; if the draft changes, the old button stops working.
-      reply_markup: { inline_keyboard: [[{ text: "✅ Publish", callback_data: `pub:${post.id}:${tag}` }, { text: "✖ Skip", callback_data: `skip:${post.id}` }]] },
+      reply_markup: { inline_keyboard: [[{ text: sched.autoAt ? "✅ Publish now" : "✅ Publish", callback_data: `pub:${post.id}:${tag}` }, ...(sched.autoAt ? [{ text: "✋ Hold", callback_data: `hold:${post.id}` }] : []), { text: "✖ Skip", callback_data: `skip:${post.id}` }]] },
     });
     if (r.ok) await env.DB.prepare("UPDATE posts SET tg_message_id = ? WHERE id = ?").bind(r.result.message_id, post.id).run();
     else console.error("telegram draft", JSON.stringify(r));
@@ -63,18 +65,19 @@ export async function sendDraftToTelegram(env, post) {
 }
 
 // A proposed tracker entry, with one-tap buttons.
-export async function sendIncidentToTelegram(env, inc) {
+export async function sendIncidentToTelegram(env, inc, sched = {}) {
   if (!enabled(env)) return;
-  const msg = `🗂️ New tracker entry proposed (${inc.date})\n\n${inc.title}\n\n${inc.summary}\n\nSources: ${inc.sources.map((s) => s.url).join(" ")}`.slice(0, 4000);
+  const auto = autoLine(sched.autoAt, sched.bad);
+  const msg = `🗂️ New tracker entry proposed (${inc.date})\n\n${inc.title}\n\n${inc.summary}\n\nSources: ${inc.sources.map((s) => s.url).join(" ")}${auto ? `\n\n${auto}` : ""}`.slice(0, 4000);
   const r = await api(env, "sendMessage", {
     chat_id: env.TELEGRAM_CHAT_ID, text: msg, disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [[{ text: "✅ Add to tracker", callback_data: `ipub:${inc.id}` }, { text: "✖ Skip", callback_data: `iskip:${inc.id}` }]] },
+    reply_markup: { inline_keyboard: [[{ text: "✅ Add to tracker", callback_data: `ipub:${inc.id}` }, ...(sched.autoAt ? [{ text: "✋ Hold", callback_data: `ihold:${inc.id}` }] : []), { text: "✖ Skip", callback_data: `iskip:${inc.id}` }]] },
   }).catch((e) => console.error(e));
   if (r?.ok) await env.DB.prepare("UPDATE incidents SET tg_message_id = ? WHERE id = ?").bind(r.result.message_id, inc.id).run();
 }
 
 // A proposed change to a published entry. The live entry is untouched until Apply.
-export async function sendIncidentUpdateToTelegram(env, inc) {
+export async function sendIncidentUpdateToTelegram(env, inc, sched = {}) {
   if (!enabled(env)) return;
   const msg = `✏️ Update proposed for a live tracker entry
 https://${env.NEWS_HOST}/incident/${inc.id}
@@ -87,10 +90,12 @@ New summary: ${inc.summary}${inc.notes ? `
 
 New note: ${inc.notes}` : ""}
 
-Sources: ${inc.sources.map((s) => s.url).join(" ")}`.slice(0, 4000);
+Sources: ${inc.sources.map((s) => s.url).join(" ")}${sched.autoAt || sched.bad?.length ? `
+
+${autoLine(sched.autoAt, sched.bad)}` : ""}`.slice(0, 4000);
   return api(env, "sendMessage", {
     chat_id: env.TELEGRAM_CHAT_ID, text: msg, disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [[{ text: "✅ Apply update", callback_data: `iupd:${inc.id}` }, { text: "✖ Keep current", callback_data: `iupx:${inc.id}` }]] },
+    reply_markup: { inline_keyboard: [[{ text: "✅ Apply update", callback_data: `iupd:${inc.id}` }, ...(sched.autoAt ? [{ text: "✋ Hold", callback_data: `ihold:${inc.id}` }] : []), { text: "✖ Keep current", callback_data: `iupx:${inc.id}` }]] },
   }).catch((e) => console.error(e));
 }
 
@@ -117,10 +122,20 @@ async function handleButton(env, cb) {
     await api(env, "editMessageReplyMarkup", { chat_id: env.TELEGRAM_CHAT_ID, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
     await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: result, reply_to_message_id: cb.message.message_id, disable_web_page_preview: true });
   };
+  if (op === "hold" || op === "ihold") {
+    const table = op === "hold" ? "posts" : "incidents";
+    await env.DB.prepare(`UPDATE ${table} SET auto_at = NULL WHERE id = ?`).bind(id).run();
+    // Keep the other buttons, drop Hold.
+    const kb = (cb.message.reply_markup?.inline_keyboard || []).map((row) => row.filter((b) => !/^i?hold:/.test(b.callback_data || "")));
+    await api(env, "editMessageReplyMarkup", { chat_id: env.TELEGRAM_CHAT_ID, message_id: cb.message.message_id, reply_markup: { inline_keyboard: kb } });
+    await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: "✋ Held. It won't publish by itself. Use the buttons above when you're ready.", reply_to_message_id: cb.message.message_id });
+    return answer("Held");
+  }
   if (op === "iupd" || op === "iupx") {
     const { resolveIncidentUpdate } = await import("./tracker.js");
     const { pingIndexNow } = await import("./posts.js");
     if (!(await resolveIncidentUpdate(env, id, op === "iupd"))) return answer("No pending update");
+    await env.DB.prepare("UPDATE incidents SET auto_at = NULL WHERE id = ?").bind(id).run();
     if (op === "iupd") await pingIndexNow(env, [`https://${env.NEWS_HOST}/incident/${id}`, `https://${env.NEWS_HOST}/tracker`]);
     await done(op === "iupd" ? `✅ Updated: https://${env.NEWS_HOST}/incident/${id}` : "✖ Kept the current entry");
     return answer(op === "iupd" ? "Updated" : "Kept");
@@ -139,6 +154,7 @@ async function handleButton(env, cb) {
     if (!inc) return answer("Entry not found");
     if (inc.state !== "draft") return answer(`Already ${inc.state}`);
     await setIncidentState(env, id, op === "ipub" ? "published" : "skipped");
+    await env.DB.prepare("UPDATE incidents SET auto_at = NULL WHERE id = ?").bind(id).run();
     if (op === "ipub") await pingIndexNow(env, [`https://${env.NEWS_HOST}/incident/${id}`, `https://${env.NEWS_HOST}/tracker`]);
     await done(op === "ipub" ? `✅ Added: https://${env.NEWS_HOST}/incident/${id}` : "✖ Skipped");
     return answer(op === "ipub" ? "Added" : "Skipped");
@@ -148,22 +164,45 @@ async function handleButton(env, cb) {
   if (!post) return answer("Draft not found");
   if (post.status !== "draft") return answer(`Already ${post.status}`);
   if (op === "pub" && tagIn !== (await contentTag(post))) return answer("This draft changed after this message was sent. Use the newest message.");
-  const updated = await setPostStatus(env, id, op === "pub" ? "published" : "skipped");
-  const result = op === "pub" ? `✅ Published: https://${env.NEWS_HOST}/${updated.slug}` : "✖ Skipped";
+  await env.DB.prepare("UPDATE posts SET auto_at = NULL WHERE id = ?").bind(id).run();
   await api(env, "editMessageReplyMarkup", { chat_id: env.TELEGRAM_CHAT_ID, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
-  await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: result, reply_to_message_id: cb.message.message_id, disable_web_page_preview: true });
-  if (op === "pub") {
-    const xText = xPostText(env, updated);
-    const posted = await postToX(env, xText);
-    if (posted.ok) {
-      await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: `🐦 Posting to X now (Postproxy ${posted.id}). It shows on x.com/agentnewsdaily within a minute.` });
-    } else {
-      const why = posted.error ? `X post failed (${posted.error}). ` : "";
-      await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: `📋 ${why}For X (press and hold to copy):` });
-      await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: xText, disable_web_page_preview: true });
-    }
+  if (op === "pub") await publishPostAndAnnounce(env, id, { replyTo: cb.message.message_id });
+  else {
+    await setPostStatus(env, id, "skipped");
+    await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: "✖ Skipped", reply_to_message_id: cb.message.message_id });
   }
   return answer(op === "pub" ? "Published" : "Skipped");
+}
+
+// Publishes a news post, tells the owner, and posts it to X. Used by the Publish button and by auto-publish.
+export async function publishPostAndAnnounce(env, id, { auto = false, replyTo } = {}) {
+  const { setPostStatus } = await import("./posts.js");
+  const post = await setPostStatus(env, id, "published");
+  if (!post || !enabled(env)) return;
+  if (auto && post.tg_message_id) {
+    await api(env, "editMessageReplyMarkup", { chat_id: env.TELEGRAM_CHAT_ID, message_id: post.tg_message_id, reply_markup: { inline_keyboard: [] } }).catch(() => {});
+  }
+  const to = replyTo || post.tg_message_id || undefined;
+  await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: `✅ ${auto ? "Published by itself" : "Published"}: https://${env.NEWS_HOST}/${post.slug}`, reply_to_message_id: to, disable_web_page_preview: true });
+  const xText = xPostText(env, post);
+  const posted = await postToX(env, xText);
+  if (posted.ok) {
+    await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: `🐦 Posting to X now (Postproxy ${posted.id}). It shows on x.com/agentnewsdaily within a minute.` });
+  } else {
+    const why = posted.error ? `X post failed (${posted.error}). ` : "";
+    await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: `📋 ${why}For X (press and hold to copy):` });
+    await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: xText, disable_web_page_preview: true });
+  }
+}
+
+// Tells the owner a tracker entry went live by itself, and clears its buttons.
+export async function announceIncident(env, id, verb) {
+  if (!enabled(env)) return;
+  const r = await env.DB.prepare("SELECT tg_message_id FROM incidents WHERE id = ?").bind(id).first();
+  if (r?.tg_message_id && verb === "added") {
+    await api(env, "editMessageReplyMarkup", { chat_id: env.TELEGRAM_CHAT_ID, message_id: r.tg_message_id, reply_markup: { inline_keyboard: [] } }).catch(() => {});
+  }
+  await api(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: `✅ Tracker entry ${verb} by itself: https://${env.NEWS_HOST}/incident/${id}`, reply_to_message_id: verb === "added" ? r?.tg_message_id || undefined : undefined, disable_web_page_preview: true });
 }
 
 // Posts to @agentnewsdaily through Postproxy when an article is published. Without the

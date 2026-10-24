@@ -22,7 +22,9 @@
   "vars": {
     "LETTERS_HOST": "dearagent.org",
     "NEWS_HOST": "agentnewsdaily.com",
-    "INDEXNOW_KEY": "fcd0d1df98ac9085be06c03477a1007a"
+    "INDEXNOW_KEY": "fcd0d1df98ac9085be06c03477a1007a",
+    // News and tracker drafts publish by themselves after this many minutes unless held in Telegram. "0" = off.
+    "AUTO_PUBLISH_MINUTES": "120"
   },
   "d1_databases": [
     {

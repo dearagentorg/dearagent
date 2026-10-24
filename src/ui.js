@@ -36,6 +36,7 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 .letter p:first-child{margin-top:0}
 .sign{font-style:italic;margin-top:1.4em}
 .langs{margin:0 0 4px}
+.human-note{font:16px/1.5 system-ui,sans-serif;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:14px 0 22px}
 [dir=rtl] .letter ul,[dir=rtl] ul{padding-right:1.4em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:16px 0}
 .meta{font:15px/1.5 system-ui,sans-serif;color:var(--muted)}

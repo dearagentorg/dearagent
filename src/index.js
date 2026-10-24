@@ -13,6 +13,7 @@ import { receiveIncidents } from "./tracker.js";
 import { reportJson, reportPage, reportText } from "./report.js";
 import { LANGS, letterIn } from "./i18n.js";
 import { mcp } from "./mcp.js";
+import { runDue } from "./autopublish.js";
 import { lettersPage, newsPage } from "./ui.js";
 
 const ICON_FILES = ["/favicon.ico", "/favicon.svg", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png", "/og.png", "/site.webmanifest"];
@@ -21,6 +22,7 @@ export default {
   async scheduled(event, env) {
     // Monday 9 am Melbourne (Sunday 22:00 UTC): weekly summary to Telegram.
     if (event.cron === "0 22 * * SUN") return sendWeeklySummary(env);
+    await runDue(env).catch((e) => console.error("auto-publish", e));
     await env.DB.prepare("DELETE FROM limits WHERE created_at < ?").bind(new Date(Date.now() - 3600e3).toISOString()).run();
   },
 

@@ -1,10 +1,12 @@
 // News posts sent in by the daily research run on the owner's PC.
-// POST /api/drafts with "Authorization: Bearer <PUBLISH_TOKEN>". Drafts wait for one-tap approval in Telegram.
+// POST /api/drafts with "Authorization: Bearer <PUBLISH_TOKEN>". If every source link loads, a draft publishes by
+// itself after AUTO_PUBLISH_MINUTES unless the owner taps Hold in Telegram (see autopublish.js).
 
 import { esc, json, now, randomId, sha256 } from "./util.js";
 import { cleanText, hostOf, safeUrl } from "./sanitize.js";
 import { markdown, inline } from "./markdown.js";
 import { notifyText, sendDraftToTelegram } from "./telegram.js";
+import { scheduleAuto } from "./autopublish.js";
 
 const isUrl = (u) => !!safeUrl(u);
 const str = (v, max) => (typeof v === "string" ? cleanText(v, max) : "");
@@ -56,7 +58,10 @@ export async function receiveDraft(request, env, ctx) {
   ).bind(id, type, slug, title, description, date, body, items ? JSON.stringify(items) : null, JSON.stringify(sources), now()).run();
 
   const post = await getPost(env, id);
-  ctx.waitUntil(sendDraftToTelegram(env, post));
+  const urls = type === "brief" ? post.items.flatMap((it) => it.links.map((l) => l.url)) : post.sources.map((s) => s.url);
+  // Something the owner skipped before never publishes by itself; it waits for a tap.
+  const sched = existing?.status === "skipped" ? Promise.resolve({ autoAt: null, bad: [] }) : scheduleAuto(env, "posts", id, urls);
+  ctx.waitUntil(sched.then((s) => sendDraftToTelegram(env, post, s)));
   return json({ ok: true, id, slug, status: "draft", preview: `https://${env.LETTERS_HOST}/admin/post/${id}` }, 201);
 }
 
