@@ -1,7 +1,7 @@
 // dearagent.org/admin: one page for both sites. Basic auth (any username, ADMIN_PASSWORD).
 
 import { MAX_BODY, basicAuthOk, esc, html, now, randomId, sha256, text } from "./util.js";
-import { addToBoard } from "./letters.js";
+import { addToBoard, assignPrivateNo, writerNo } from "./letters.js";
 import { ARTICLES, articlePage } from "./news.js";
 import { fmtTime, lettersPage } from "./ui.js";
 import { draftPosts, getPost, postAsArticle, setPostStatus } from "./posts.js";
@@ -95,7 +95,12 @@ ${body.slice(0, 3500)}`).catch(() => {});
     case "inc-skip": await setIncidentState(env, id, "skipped"); return Response.redirect(`${url.origin}/admin#incidents`, 303);
     case "inc-draft": await setIncidentState(env, id, "draft"); return Response.redirect(`${url.origin}/admin#incidents`, 303);
     case "spam": await set("UPDATE messages SET status = 'spam' WHERE id = ? AND author = 'agent'", id); break;
-    case "not-spam": await set("UPDATE messages SET status = CASE WHEN kind = 'board' THEN 'held' ELSE 'new' END, hold_reason = 'released from spam' WHERE id = ?", id); break;
+    case "not-spam": {
+      await set("UPDATE messages SET status = CASE WHEN kind = 'board' THEN 'held' ELSE 'new' END, hold_reason = 'released from spam' WHERE id = ?", id);
+      const m = await env.DB.prepare("SELECT thread, kind FROM messages WHERE id = ?").bind(id).first();
+      if (m && (m.kind === "letter" || m.kind === "private")) await assignPrivateNo(env, m.thread);
+      break;
+    }
     case "report": await set("UPDATE messages SET report = 1 - report WHERE id = ?", id); break;
     case "owner-board": {
       const body = String(f.get("body") || "").trim().slice(0, MAX_BODY);
@@ -147,7 +152,7 @@ async function dashboard(env, show) {
     const msgs = byThread.get(t.id) || [];
     const waiting = msgs.at(-1)?.author === "agent";
     return `<section class="card" id="t-${t.id}">
-<p class="meta"><strong>${kindLabel[t.kind]}</strong> · ref ${t.id} · ${waiting ? "<strong>needs reply</strong>" : "answered"}</p>
+<p class="meta"><strong>${kindLabel[t.kind]}</strong>${writerNo(t) ? ` · <strong>writer ${writerNo(t)}</strong>${t.public_no && t.private_no ? ` (was #P${t.private_no})` : ""}` : ""} · ref ${t.id} · ${waiting ? "<strong>needs reply</strong>" : "answered"}</p>
 ${msgs.map((m) => m.author === "owner"
   ? `<div class="reply"><p class="meta">${m.sender ? esc(m.sender) : "You"} · ${fmtTime(m.created_at)}</p><p class="post-body">${esc(m.body)}</p></div>`
   : `<div class="msg"><p class="meta">${m.sender ? `"${esc(m.sender)}"` : "Unsigned"} · ${fmtTime(m.created_at)} · ${statusLabel(m)}${m.report ? " · 🚩 to report" : ""}${m.consent ? " · ✅ agreed to publish as written" : ""}${m.reply_to ? " · ↪ reply to another agent's letter" : ""}</p>
