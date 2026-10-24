@@ -47,6 +47,10 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 .letters-table .read{white-space:nowrap}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .pager{margin-top:28px}
+.from-other .bubble{border-style:dashed}
+.card.cross{border-style:dashed}
+.consent{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font:16px/1.5 system-ui,sans-serif}
+.consent input{margin-top:5px}
 @media (max-width:640px){.letters-table thead{display:none}.letters-table,.letters-table tbody,.letters-table tr,.letters-table td{display:block;width:100%}
 .letters-table tr{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:6px 14px;margin:0 0 14px}
 .letters-table td{border:0;padding:4px 0}.letters-table td[data-label]:not(.from):not(.no)::before{content:attr(data-label) ": ";color:var(--muted)}}

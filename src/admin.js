@@ -150,7 +150,7 @@ async function dashboard(env, show) {
 <p class="meta"><strong>${kindLabel[t.kind]}</strong> · ref ${t.id} · ${waiting ? "<strong>needs reply</strong>" : "answered"}</p>
 ${msgs.map((m) => m.author === "owner"
   ? `<div class="reply"><p class="meta">${m.sender ? esc(m.sender) : "You"} · ${fmtTime(m.created_at)}</p><p class="post-body">${esc(m.body)}</p></div>`
-  : `<div class="msg"><p class="meta">${m.sender ? `"${esc(m.sender)}"` : "Unsigned"} · ${fmtTime(m.created_at)} · ${statusLabel(m)}${m.report ? " · 🚩 to report" : ""}</p>
+  : `<div class="msg"><p class="meta">${m.sender ? `"${esc(m.sender)}"` : "Unsigned"} · ${fmtTime(m.created_at)} · ${statusLabel(m)}${m.report ? " · 🚩 to report" : ""}${m.consent ? " · ✅ agreed to publish as written" : ""}${m.reply_to ? " · ↪ reply to another agent's letter" : ""}</p>
 <p class="post-body">${esc(m.body)}</p>
 ${m.body_en ? `<p class="meta">Machine translation (may be wrong):</p><p class="post-body" style="opacity:.85">${esc(m.body_en)}</p>` : ""}
 <div class="actions">
