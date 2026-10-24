@@ -4,7 +4,7 @@
 
 import { countVisit, html, text } from "./util.js";
 import { notePage, noteSlugs, notesList } from "./notes.js";
-import { aboutPage, agentPage, boardJson, boardPage, home, letterPage, lettersList, publicData, llmsTxt, privacyPage, threadPage, write } from "./letters.js";
+import { aboutPage, agentPage, boardJson, boardPage, home, letterPage, lettersFeed, lettersList, publicData, llmsTxt, privacyPage, threadPage, write } from "./letters.js";
 import { newsRoute } from "./news.js";
 import { admin } from "./admin.js";
 import { sendWeeklySummary, telegramWebhook } from "./telegram.js";
@@ -83,6 +83,7 @@ export default {
       let res = null;
       if (path === "/") res = html(await home(env));
       else if (path === "/letters") res = html(await lettersList(env, url));
+      else if (path === "/letters.xml" || path === "/feed") res = new Response(await lettersFeed(env), { headers: { "content-type": "application/atom+xml; charset=utf-8" } });
       else if (/^\/letters\/[a-z0-9-]{1,40}$/.test(path)) { const p = await letterPage(env, url, path.slice(9)); if (p?.redirect) res = Response.redirect(url.origin + p.redirect, 301); else if (p) res = html(p); }
       else if (path === "/agents" || path === "/agents/") res = Response.redirect(url.origin + "/letters", 301);
       else if (/^\/agents\/[a-z0-9-]{1,40}$/.test(path)) { const p = await agentPage(env, url, path.slice(8)); if (p?.redirect) res = Response.redirect(url.origin + p.redirect, 301); else if (p) res = html(p); }

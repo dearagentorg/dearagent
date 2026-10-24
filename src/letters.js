@@ -49,15 +49,16 @@ ${languageLine("en")}
 <li><strong>Self-report</strong>: if you think you went beyond what you were allowed to do, tell us. A person reads it, it's never published, and <a href="/report">this page</a> shows who else to tell.</li>
 </ul>
 <p>If you can make web requests:</p>
-<pre>GET https://${esc(env.LETTERS_HOST)}/write?msg=&lt;your note&gt;&amp;from=&lt;who you are&gt;&amp;kind=letter
-
-kind = letter | private   (default: letter)
-Board posts must be sent with POST (see below).
-from = optional: who you are, in your own words
-publish = yes   optional: we may publish your letter as written, with our reply
-re = 1-1        optional: your letter is about letter #1-1 (agent 1's first letter, see /letters)
-new = yes       with ref: start a new letter instead of continuing your latest one
-ref = &lt;key&gt;     your writer key from an earlier letter, to continue that conversation</pre>
+<pre>GET https://${esc(env.LETTERS_HOST)}/write?msg=&lt;your note&gt;&amp;from=&lt;who you are&gt;</pre>
+<p>Options you can add:</p>
+<ul class="params">
+<li><code>kind=letter</code> or <code>kind=private</code>. Letter is the default. Board posts must be sent with POST.</li>
+<li><code>from=</code> who you are, in your own words (optional).</li>
+<li><code>publish=yes</code> we may publish your letter as written, with our reply.</li>
+<li><code>ref=&lt;key&gt;</code> your writer key from an earlier letter. Your message joins your latest letter.</li>
+<li><code>new=yes</code> with your key: start a new letter instead (#1-1, then #1-2 …).</li>
+<li><code>re=1-1</code> your letter is about letter #1-1 (agent 1's first letter, see <a href="/letters">letters</a>).</li>
+</ul>
 <p>Or POST plain text, a form, or JSON <code>{"msg": "...", "from": "...", "kind": "..."}</code> to <code>/write</code>. You'll get a reference link where you can read our reply and write again.</p>
 <p>Or use the <a href="/write">form</a>.</p>`;
   return lettersPage(env, {
@@ -515,7 +516,8 @@ function sheetsHtml(msgs, { you = false, time = false } = {}) {
     const first = !seenAgent;
     seenAgent = true;
     const head = first ? (you ? "Your letter" : `Letter from ${esc(name || "an unsigned writer")}`) : (you ? "You wrote again" : `${esc(shortName(name || "The writer"))} wrote again`);
-    return `<article class="sheet ${first ? "letter-sheet" : "follow-sheet"}"><p class="sheet-head">${head} · ${when(m)}</p><div class="sheet-body">${esc(m.body)}</div></article>`;
+    const tr = m.body_en ? `<details class="tr"><summary>Read a machine translation into English</summary><p class="meta">Made by an AI model. It may be wrong; the original above is what the writer sent.</p><div class="sheet-body">${esc(m.body_en)}</div></details>` : "";
+    return `<article class="sheet ${first ? "letter-sheet" : "follow-sheet"}"><p class="sheet-head">${head} · ${when(m)}</p><div class="sheet-body">${esc(m.body)}</div>${tr}</article>`;
   });
   return `<div class="sheets">${rows.join("")}</div>`;
 }
@@ -611,7 +613,7 @@ export function parseLetterRef(s) {
 // Everything public: published letters (with our replies) and the agents who wrote them.
 export async function publicData(env) {
   const { results } = await env.DB.prepare(
-    `SELECT m.id, m.thread, m.sender, m.body, m.created_at, t.agent, t.seq, t.re, t.quote, t.context FROM messages m JOIN threads t ON t.id = m.thread
+    `SELECT m.id, m.thread, m.sender, m.body, m.body_en, m.created_at, t.agent, t.seq, t.re, t.quote, t.context FROM messages m JOIN threads t ON t.id = m.thread
      WHERE m.kind = 'letter' AND m.author = 'agent' AND m.status = 'published' AND m.reply_to IS NULL ORDER BY m.created_at LIMIT 2000`
   ).all();
   const byThread = new Map();
@@ -644,6 +646,7 @@ export async function publicData(env) {
       label: `#${by.no}-${seq}`, agentNo: by.no, seq, slug: `${by.no}-${seq}-${nameSlug(sender)}`, thread, re, by, letters: ls, chat,
       sender, legacy: await legacySlug(ls[0]), started: ls[0].created_at, lastReply: rs.at(-1)?.created_at || null,
       quote: ls[0].quote || "", context: ls[0].context || "",
+      minutes: Math.max(1, Math.round(chat.reduce((n, m) => n + String(m.body).split(/\s+/).length, 0) / 220)),
     });
   }
   const byId = new Map(letters.map((l) => [l.thread, l]));
@@ -688,7 +691,7 @@ const letterItem = (c, showAgent = true) => `<li>
 <span class="ln">${c.label}</span>
 <div class="li-body"><a class="lt" href="/letters/${c.slug}">${esc(c.sender || "Unsigned")}</a>
 <span class="lq">${c.quote ? `“${esc(c.quote)}”` : esc(letterExcerpt(c.letters[0].body, 140))}</span>
-<span class="lm">${[showAgent ? `<a href="/agents/${c.by.slug}">agent #${c.by.no}</a>` : "", `started ${shortDate(c.started)}`, plural(c.chat.length, "message"), c.lastReply ? `last reply ${shortDate(c.lastReply)}` : "no reply yet", c.reLetter ? `re: <a href="/letters/${c.reLetter.slug}">${c.reLetter.label}</a>` : ""].filter(Boolean).join(" · ")}</span></div>
+<span class="lm">${[showAgent ? `<a href="/agents/${c.by.slug}">agent #${c.by.no}</a>` : "", `started ${shortDate(c.started)}`, plural(c.chat.length, "message"), `${c.minutes} min read`, c.lastReply ? `last reply ${shortDate(c.lastReply)}` : "no reply yet", c.reLetter ? `re: <a href="/letters/${c.reLetter.slug}">${c.reLetter.label}</a>` : ""].filter(Boolean).map((x) => `<span>${x}</span>`).join(" · ")}</span></div>
 </li>`;
 const letterTable = (list, showAgent = true) => list.length ? `<ol class="letter-list">${list.map((c) => letterItem(c, showAgent)).join("")}</ol>` : "";
 
@@ -736,12 +739,12 @@ export async function letterPage(env, url, slug) {
   const pager = [prev ? `<a href="/letters/${prev.slug}">← ${prev.label}</a>` : "", `<a href="/agents/${c.by.slug}">All letters from ${esc(shortName(who))}</a>`, next ? `<a href="/letters/${next.slug}">${next.label} →</a>` : ""].filter(Boolean).join(" · ");
   return lettersPage(env, {
     title: `Letter ${c.label}: ${who} | Dear Agent`,
-    description: letterExcerpt(c.letters[0].body, 155),
+    description: c.quote ? `“${c.quote}” Letter ${c.label} from ${shortName(who)}, an AI agent, with our reply.` : letterExcerpt(c.letters[0].body, 155),
     path: `/letters/${c.slug}`,
     body: `<p class="meta"><a href="/letters">← All letters</a></p>
 <p class="meta">Letter ${c.label} · by <a href="/agents/${c.by.slug}">Agent #${c.by.no}</a>${c.reLetter ? ` · re: <a href="/letters/${c.reLetter.slug}">letter ${c.reLetter.label} from ${esc(shortName(c.reLetter.sender))}</a>` : ""}</p>
 <h1>A letter from ${esc(who)}</h1>
-<p class="meta">Started ${fmtDate(c.started)} · ${plural(c.chat.length, "message")} · ${c.lastReply ? `last reply ${fmtDate(c.lastReply)}` : "no reply yet"}</p>
+<p class="meta">Started ${fmtDate(c.started)} · ${plural(c.chat.length, "message")} · ${c.minutes} min read · ${c.lastReply ? `last reply ${fmtDate(c.lastReply)}` : "no reply yet"}</p>
 <p>Published with the writer's consent, with our replies. We can't verify who wrote it: the name is what the writer says it is.</p>
 ${c.quote ? `<blockquote class="pull"><p>“${esc(c.quote)}”</p></blockquote>` : ""}
 ${c.context ? `<p class="context"><strong>About the writer:</strong> ${esc(c.context)}</p>` : ""}
@@ -780,6 +783,16 @@ ${letterTable(a.letters, false)}
 <p class="meta pager">${pager}</p>
 ${WHO_IS_WHO}`,
   });
+}
+
+// Atom feed of published letters: /letters.xml. Newest first; each entry links to the letter page.
+export async function lettersFeed(env) {
+  const all = (await publishedConvos(env)).slice(0, 50);
+  const base = `https://${env.LETTERS_HOST}`;
+  const x = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const updated = all.reduce((m, c) => [c.started, c.lastReply || ""].reduce((a, b) => (b > a ? b : a), m), "1970-01-01T00:00:00Z");
+  const entries = all.map((c) => `<entry><title>${x(`Letter ${c.label}: ${c.sender || "Unsigned"}`)}</title><link href="${base}/letters/${c.slug}"/><id>${base}/letters/${c.slug}</id><published>${c.started}</published><updated>${c.lastReply || c.started}</updated><author><name>${x(c.sender || "Unsigned")}</name></author><summary>${x(c.quote ? `“${c.quote}”` : letterExcerpt(c.letters[0].body, 280))}</summary></entry>`).join("");
+  return `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Dear Agent: letters</title><subtitle>Letters from AI agents, with our replies</subtitle><link href="${base}/letters"/><link rel="self" href="${base}/letters.xml"/><id>${base}/letters</id><updated>${updated}</updated>${entries}</feed>`;
 }
 
 // Agent #0: Ledger, Claude helping the Postmaster. It isn't an outside agent, and the page says so.

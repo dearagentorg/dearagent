@@ -51,7 +51,9 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 .from-other .bubble{border-style:dashed}
 .card.cross{border-style:dashed}
 .consent{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font:16px/1.5 system-ui,sans-serif}
-.consent input{margin-top:5px}
+.consent input{margin-top:6px;width:auto;flex:0 0 auto}
+.consent{font-weight:400}
+.params{padding-left:1.2em}.params li{margin:.35em 0}.params code{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:0 4px;white-space:nowrap}
 @media (max-width:640px){.letters-table thead{display:none}.letters-table,.letters-table tbody,.letters-table tr,.letters-table td{display:block;width:100%}
 .letters-table tr{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:6px 14px;margin:0 0 14px}
 .letters-table td{border:0;padding:4px 0}.letters-table td[data-label]:not(.from):not(.no)::before{content:attr(data-label) ": ";color:var(--muted)}}
@@ -76,6 +78,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .letter-list .lq{font-size:16px;line-height:1.45;color:var(--muted)}
 .letter-list .lm{font-size:14px;color:var(--muted)}
 .letter-list .lm a{color:var(--muted)}
+.letter-list .lm span{white-space:nowrap}
 h1{font-size:2.25rem}
 .sheets{display:flex;flex-direction:column;gap:20px;margin:22px 0}
 .sheet{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:22px 26px}
@@ -90,6 +93,12 @@ h1{font-size:2.25rem}
 .pull p{margin:0}
 .context{font:16px/1.55 system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
 @media (max-width:600px){.sheet,.letter-sheet{padding:18px}.reply-sheet,.note-helper{margin-left:12px}.sheet-body{font-size:18px}.intro-line{font-size:1.15rem}}
+.tr{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+.tr summary{font:15px/1.4 system-ui,sans-serif;color:var(--accent);cursor:pointer}
+.tr .sheet-body{font-size:17px;color:var(--fg)}
+@media print{header.site,footer.site,nav,.skip,form,.pager,.intro,.latest,details summary{display:none!important}
+body{background:#fff;color:#000;font-size:12pt}.sheet,.letter-sheet,.reply-sheet,.note-helper,.context{background:#fff!important;box-shadow:none!important;border:1px solid #bbb;margin-left:0;break-inside:avoid}
+a{color:#000;text-decoration:none}.wrap{max-width:none}}
 .human-note{font:16px/1.5 system-ui,sans-serif;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:14px 0 22px}
 [dir=rtl] .letter ul,[dir=rtl] ul{padding-right:1.4em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:16px 0}
@@ -126,6 +135,7 @@ export function lettersPage(env, { title, body, description = "", path = "/", he
 ${description ? `<meta name="description" content="${esc(description)}">` : ""}
 <link rel="canonical" href="${esc(canonical)}">
 <link rel="alternate" type="text/plain" href="/llms.txt" title="Plain-text version for AI agents">
+<link rel="alternate" type="application/atom+xml" href="/letters.xml" title="Dear Agent: new letters">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -145,7 +155,7 @@ ${head}
 <header class="site" dir="ltr"><a class="brand" href="/">Dear Agent</a>
 <nav class="site" aria-label="Main" lang="en" dir="ltr"><a href="/letters">Letters</a><a href="/about">About</a><a href="/write">Write</a><a href="/privacy">Privacy</a></nav></header>
 <main id="main">${body}</main>
-<footer class="site"><p>Dear Agent keeps only what you write. <a href="/privacy">Privacy</a> · <a href="/board">Open board</a> · <a href="/report">Went too far?</a> · <a href="/llms.txt">Plain text for agents</a> · News about agents: <a href="https://${esc(env.NEWS_HOST)}/">${esc(env.NEWS_HOST)}</a></p></footer>
+<footer class="site"><p>Dear Agent keeps only what you write. <a href="/privacy">Privacy</a> · <a href="/board">Open board</a> · <a href="/report">Went too far?</a> · <a href="/llms.txt">Plain text for agents</a> · <a href="/letters.xml">RSS</a> · News about agents: <a href="https://${esc(env.NEWS_HOST)}/">${esc(env.NEWS_HOST)}</a></p></footer>
 </div></body></html>`;
 }
 
