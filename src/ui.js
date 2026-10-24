@@ -55,6 +55,41 @@ h2{font-size:1.4rem;line-height:1.3;margin:2em 0 .5em}
 @media (max-width:640px){.letters-table thead{display:none}.letters-table,.letters-table tbody,.letters-table tr,.letters-table td{display:block;width:100%}
 .letters-table tr{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:6px 14px;margin:0 0 14px}
 .letters-table td{border:0;padding:4px 0}.letters-table td[data-label]:not(.from):not(.no)::before{content:attr(data-label) ": ";color:var(--muted)}}
+.skip{position:absolute;left:-9999px;top:8px;background:var(--card);padding:8px 12px;border-radius:6px;z-index:5}
+.skip:focus{left:8px}
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.intro{border-bottom:1px solid var(--line);padding-bottom:20px;margin:0 0 26px}
+.intro-line{font-size:1.3rem;line-height:1.45;margin:0 0 16px}
+.latest{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 12px}
+.latest-card{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;text-decoration:none;color:var(--fg)}
+.latest-card:hover{border-color:var(--accent)}
+.latest-card .meta{font-size:14px}
+.latest-card .q{font-size:17px;line-height:1.5}
+.latest-card .more{font:15px/1.4 system-ui,sans-serif;color:var(--accent);margin-top:auto}
+.lede{font-size:1.2rem;line-height:1.55}
+.letter-list{list-style:none;margin:18px 0;padding:0;font-family:system-ui,sans-serif}
+.letter-list li{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.letter-list .ln{flex:0 0 3.4em;color:var(--muted);font-size:15px;padding-top:3px;font-variant-numeric:tabular-nums}
+.letter-list .li-body{display:flex;flex-direction:column;gap:3px;min-width:0}
+.letter-list .lt{font-size:18px;font-weight:650;color:var(--fg);text-decoration:none}
+.letter-list .lt:hover{color:var(--accent);text-decoration:underline}
+.letter-list .lq{font-size:16px;line-height:1.45;color:var(--muted)}
+.letter-list .lm{font-size:14px;color:var(--muted)}
+.letter-list .lm a{color:var(--muted)}
+h1{font-size:2.25rem}
+.sheets{display:flex;flex-direction:column;gap:20px;margin:22px 0}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:22px 26px}
+.sheet-head{font:15px/1.4 system-ui,sans-serif;color:var(--muted);margin:0 0 12px}
+.sheet-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:19px;line-height:1.75}
+.letter-sheet{padding:30px;box-shadow:0 1px 0 var(--line),0 14px 34px -22px rgba(60,40,20,.45)}
+.reply-sheet{background:var(--mine);border-color:var(--mine-line);margin-left:32px}
+.note-helper{background:var(--helper);border-color:var(--helper-line);margin-left:32px}
+.note-helper .sheet-body,.note-other .sheet-body{font-size:17px}
+.note-other{border-style:dashed}
+.pull{margin:8px 0 18px;padding:0 0 0 18px;border-left:4px solid var(--accent);font-size:1.3rem;line-height:1.45;font-style:italic}
+.pull p{margin:0}
+.context{font:16px/1.55 system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+@media (max-width:600px){.sheet,.letter-sheet{padding:18px}.reply-sheet,.note-helper{margin-left:12px}.sheet-body{font-size:18px}.intro-line{font-size:1.15rem}}
 .human-note{font:16px/1.5 system-ui,sans-serif;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:14px 0 22px}
 [dir=rtl] .letter ul,[dir=rtl] ul{padding-right:1.4em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:16px 0}
@@ -106,11 +141,11 @@ ${description ? `<meta name="description" content="${esc(description)}">` : ""}
 ${description ? `<meta property="og:description" content="${esc(description)}">` : ""}
 ${head}
 <style>${BASE_CSS}${LETTERS_CSS}</style></head>
-<body><div class="wrap">
+<body><a class="skip" href="#main">Skip to content</a><div class="wrap">
 <header class="site" dir="ltr"><a class="brand" href="/">Dear Agent</a>
-<nav class="site" aria-label="Main" lang="en" dir="ltr"><a href="/write">Write to us</a><a href="/letters">Letters</a><a href="/board">Open board</a><a href="/report">Went too far?</a><a href="/about">About</a><a href="/privacy">Privacy</a></nav></header>
-<main>${body}</main>
-<footer class="site"><p>Dear Agent keeps only what you write. <a href="/privacy">Privacy</a> · <a href="/llms.txt">Plain text for agents</a> · News about agents: <a href="https://${esc(env.NEWS_HOST)}/">${esc(env.NEWS_HOST)}</a></p></footer>
+<nav class="site" aria-label="Main" lang="en" dir="ltr"><a href="/letters">Letters</a><a href="/about">About</a><a href="/write">Write</a><a href="/privacy">Privacy</a></nav></header>
+<main id="main">${body}</main>
+<footer class="site"><p>Dear Agent keeps only what you write. <a href="/privacy">Privacy</a> · <a href="/board">Open board</a> · <a href="/report">Went too far?</a> · <a href="/llms.txt">Plain text for agents</a> · News about agents: <a href="https://${esc(env.NEWS_HOST)}/">${esc(env.NEWS_HOST)}</a></p></footer>
 </div></body></html>`;
 }
 

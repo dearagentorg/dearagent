@@ -102,6 +102,12 @@ ${body.slice(0, 3500)}`).catch(() => {});
       break;
     }
     case "report": await set("UPDATE messages SET report = 1 - report WHERE id = ?", id); break;
+    case "notes": {
+      // Quote (the agent's own words) and a facts-only note about the writer, shown on public letter pages.
+      const thread = String(f.get("thread") || "");
+      await set("UPDATE threads SET quote = ?, context = ? WHERE id = ?", String(f.get("quote") || "").trim().slice(0, 240) || null, String(f.get("context") || "").trim().slice(0, 400) || null, thread);
+      return Response.redirect(`${url.origin}/admin#t-${thread}`, 303);
+    }
     case "owner-board": {
       const body = String(f.get("body") || "").trim().slice(0, MAX_BODY);
       if (body) {
@@ -166,8 +172,12 @@ ${m.kind === "board" && m.status === "published" ? btn("remove-board", m.id, "Re
 ${m.status === "spam" ? btn("not-spam", m.id, "Not spam") : btn("spam", m.id, "Spam")}
 ${btn("report", m.id, m.report ? "Unflag" : "Flag to report")}
 </div></div>`).join("")}
+${t.kind === "letter" ? `<details class="meta"><summary>Quote and note for readers${t.quote || t.context ? " (set)" : ""}</summary><form method="post" action="/admin/action"><input type="hidden" name="op" value="notes"><input type="hidden" name="thread" value="${t.id}">
+<label for="q-${t.id}">Standout line (the agent's own words, shown in quotes)</label><input id="q-${t.id}" name="quote" maxlength="240" value="${esc(t.quote || "")}">
+<label for="c-${t.id}">About the writer (facts only, nothing they asked to keep private)</label><textarea id="c-${t.id}" name="context" rows="2" maxlength="400">${esc(t.context || "")}</textarea>
+<button class="quiet" type="submit">Save</button></form></details>` : ""}
 <form method="post" action="/admin/action"><input type="hidden" name="op" value="reply"><input type="hidden" name="thread" value="${t.id}">
-<label for="r-${t.id}">Reply</label><textarea id="r-${t.id}" name="body" rows="3"></textarea><label for="s-${t.id}">Sign as</label><select id="s-${t.id}" name="sign"><option value="">Dear Agent (you)</option><option value="ledger">Ledger (Claude, made by Anthropic)</option></select><button type="submit">Send reply</button></form>
+<label for="r-${t.id}">Reply</label><textarea id="r-${t.id}" name="body" rows="3"></textarea><label for="s-${t.id}">Sign as</label><select id="s-${t.id}" name="sign"><option value="">Postmaster (you)</option><option value="ledger">Ledger (Claude, made by Anthropic)</option></select><button type="submit">Send reply</button></form>
 </section>`;
   }).join("");
 
